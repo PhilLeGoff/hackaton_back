@@ -31,9 +31,11 @@ mongoose
 // Import routes
 import authRoutes from "./src/routes/authRoutes.js";
 import userRoutes from "./src/routes/userRoutes.js";
+import tweetRoutes from "./src/routes/tweetRoutes.js"
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/tweets", tweetRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -3,20 +3,16 @@ import AuthService from "../services/authService.js";
 class AuthController {
   async register(req, res) {
     try {
-      console.log("🔥 Received Body:", req.body);
-      console.log("🔥 Received File:", req.file);
+      console.log("🔥 Received Register Request:", req.body);
+      console.log("📂 Uploaded File:", req.file); // Debugging file upload
 
       const { username, email, password, bio } = req.body;
-      const avatarFile = req.file;
+      const avatar = req.file ? req.file.path : null; // Store uploaded avatar URL
 
-      if (!avatarFile) {
-        return res.status(400).json({ message: "Avatar file is required!" });
-      }
-
-      const { token, user } = await AuthService.registerUser(username, email, password, bio, avatarFile);
+      const { token, user } = await AuthService.registerUser(username, email, password, bio, avatar);
       return res.status(201).json({ token, user });
     } catch (error) {
-      console.error("❌ Error in register controller:", error);
+      console.error("❌ Error in Register:", error);
       return res.status(400).json({ message: error.message });
     }
   }
