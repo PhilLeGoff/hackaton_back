@@ -5,6 +5,26 @@ class TweetRepository {
     return await new Tweet(tweetData).save();
   }
 
+  async getPaginatedTweets(page, limit) {
+    try {
+      const tweets = await Tweet.find()
+        .populate("userId") // Fetch user info
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
+
+      const totalTweets = await Tweet.countDocuments();
+      return {
+        tweets,
+        hasMore: page * limit < totalTweets,
+      };
+    } catch (error) {
+      console.error("❌ Error fetching tweets:", error);
+      throw new Error("Database error: Failed to fetch tweets");
+    }
+  }
+
   async getTrendingHashtags(limit = 10) {
     return await Tweet.aggregate([
       { $unwind: "$hashtags" },

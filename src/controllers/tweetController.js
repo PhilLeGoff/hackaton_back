@@ -17,6 +17,17 @@ class TweetController {
     }
   }
 
+  async getTweets(req, res) {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+      const tweets = await TweetService.getTweets(parseInt(page), parseInt(limit));
+      res.json(tweets);
+    } catch (error) {
+      console.error("❌ Error fetching tweets:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+  
   async getTrendingHashtags(req, res) {
     try {
       const trendingHashtags = await TweetService.getTrendingHashtags();

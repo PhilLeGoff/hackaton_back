@@ -9,6 +9,7 @@ const router = express.Router();
 router.post("/", verifyToken, uploadTweetMedia.single("media"), (req, res) =>
   TweetController.createTweet(req, res)
 );
+router.get("/", verifyToken, (req, res) => TweetController.getTweets(req, res));
 router.get("/trending-hashtags", verifyToken, (req, res) =>
   TweetController.getTrendingHashtags(req, res)
 );

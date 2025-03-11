@@ -29,6 +29,15 @@ class TweetService {
     }
   }
 
+  async getTweets(page, limit) {
+    try {
+      return await TweetRepository.getPaginatedTweets(page, limit);
+    } catch (error) {
+      console.error("❌ Error in TweetService:", error);
+      throw new Error("Failed to fetch tweets");
+    }
+  }
+
   async getTrendingHashtags() {
     return await TweetRepository.getTrendingHashtags();
   }
