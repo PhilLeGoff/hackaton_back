@@ -27,7 +27,7 @@ class TweetController {
       res.status(500).json({ message: "Server error" });
     }
   }
-  
+
   async getTrendingHashtags(req, res) {
     try {
       const trendingHashtags = await TweetService.getTrendingHashtags();
@@ -60,26 +60,44 @@ class TweetController {
     }
   }
 
+   // Like or Unlike a Tweet
   async likeTweet(req, res) {
     try {
       const { tweetId } = req.params;
-      const userId = req.user.id;
-      const updatedTweet = await TweetService.likeTweet(tweetId, userId);
+      const userId = req.user.id; // Extract from token
+
+      const updatedTweet = await TweetService.toggleLike(tweetId, userId);
       res.json(updatedTweet);
     } catch (error) {
-      console.error("❌ Error liking tweet:", error);
+      console.error("❌ Error in likeTweet:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+
+  // Retweet a Tweet
+  async retweet(req, res) {
+    try {
+      const { tweetId } = req.params;
+      const { text } = req.body;
+      const userId = req.user.id;
+      console.log("userID", userId)
+      const retweetedTweet = await TweetService.retweet(tweetId, userId, text);
+      res.json(retweetedTweet);
+    } catch (error) {
+      console.error("❌ Error in retweet:", error);
       res.status(500).json({ message: error.message || "Server error" });
     }
   }
 
-  async retweet(req, res) {
+  async unretweet(req, res) {
     try {
       const { tweetId } = req.params;
       const userId = req.user.id;
-      const retweetedTweet = await TweetService.retweet(tweetId, userId);
-      res.json(retweetedTweet);
+      console.log("in unretweet")
+      const result = await TweetService.unretweet(tweetId, userId);
+      res.json(result);
     } catch (error) {
-      console.error("❌ Error retweeting:", error);
+      console.error("❌ Error in unretweet:", error);
       res.status(500).json({ message: error.message || "Server error" });
     }
   }

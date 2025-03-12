@@ -2,6 +2,8 @@ import express from "express";
 import TweetController from "../controllers/tweetController.js";
 import { uploadTweetMedia } from "../middleware/upload.js";
 import verifyToken from "../middleware/verifyToken.js";
+import Tweet from "../models/Tweet.js";
+import tweetController from "../controllers/tweetController.js";
 
 const router = express.Router();
 
@@ -25,6 +27,7 @@ router.post("/:tweetId/like", verifyToken, (req, res) =>
 router.post("/:tweetId/retweet", verifyToken, (req, res) =>
   TweetController.retweet(req, res)
 );
+router.post("/:tweetId/undo-retweet", verifyToken, (req, res) => tweetController.unretweet(req, res))
 router.post("/:tweetId/reply", verifyToken, (req, res) =>
   TweetController.replyToTweet(req, res)
 );

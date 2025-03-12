@@ -6,19 +6,13 @@ class AuthService {
   async registerUser(username, email, password, bio = "", avatarFile) {
     try {
       const existingUser = await AuthRepository.findUserByEmail(email);
-      if (existingUser) {
-        throw new Error("User already exists");
-      }
-
+      if (existingUser) throw new Error("User already exists");
+  
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
-
-      let avatarUrl = "https://default-avatar.com/avatar.png";
-
-      if (avatarFile) {
-        avatarUrl = avatarFile.path;
-      }
-
+  
+      let avatarUrl = avatarFile || "https://default-avatar.com/avatar.png"; // ✅ Default avatar
+  
       const newUser = await AuthRepository.createUser({
         username,
         email,
@@ -26,9 +20,8 @@ class AuthService {
         bio,
         avatar: avatarUrl,
       });
-
+  
       const token = this.generateToken(newUser._id);
-
       return { token, user: newUser };
     } catch (error) {
       console.error("❌ Error in registerUser:", error);

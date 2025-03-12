@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: "https://default-avatar.com/avatar.png" },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    savedTweets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tweet" }], // ✅ New field for saved tweets
     role: { type: String, enum: ["user", "admin"], default: "user" },
     status: { type: String, enum: ["active", "suspended"], default: "active" },
   },

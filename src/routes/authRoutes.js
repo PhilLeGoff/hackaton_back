@@ -7,8 +7,7 @@ const router = express.Router();
 // Debugging log before handling request
 router.post("/register", uploadAvatar.single("avatar"), (req, res) => {
   console.log("🔥 Register Route Hit!");
-  console.log("📂 Uploaded File:", req.file); // Check if the file is received
-  console.log("📩 Request Body:", req.body); // Check if form fields are received
+  console.log("📂 Uploaded File:", req.file ? req.file.path : "No avatar uploaded"); // Debugging
 
   AuthController.register(req, res);
 });

@@ -8,8 +8,13 @@ class TweetRepository {
   async getPaginatedTweets(page, limit) {
     try {
       const tweets = await Tweet.find()
-        .populate("userId") // Fetch user info
-        .sort({ createdAt: -1 })
+        .populate("userId", "username")
+        .populate("retweetedBy", "username")
+        .populate({
+          path: "originalTweet",
+          populate: { path: "userId", select: "username" } // Fetch original tweet details
+        })
+        .sort({ retweetedAt: -1, createdAt: -1 }) 
         .skip((page - 1) * limit)
         .limit(limit)
         .lean();
@@ -25,61 +30,86 @@ class TweetRepository {
     }
   }
 
-  async getTrendingHashtags(limit = 10) {
-    return await Tweet.aggregate([
-      { $unwind: "$hashtags" },
-      { $group: { _id: "$hashtags", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: limit }
-    ]);
+  async findTweetById(tweetId) {
+    return await Tweet.findById(tweetId).populate("userId", "username");
   }
 
-  async searchByHashtag(hashtag) {
-    return await Tweet.find({ hashtags: hashtag.toLowerCase() }).populate("userId");
+  async findRetweet(originalTweetId, userId) {
+    return await Tweet.findOne({ originalTweet: originalTweetId, retweetedBy: userId });
   }
 
-  async getFeed(userId) {
-    return await Tweet.find({ userId }).sort({ createdAt: -1 }).populate("userId");
+  async addRetweetToOriginal(tweetId, userId) {
+    return await Tweet.findByIdAndUpdate(
+      tweetId,
+      { $addToSet: { retweets: userId } }, 
+      { new: true }
+    );
   }
 
-  async likeTweet(tweetId, userId) {
-    return await Tweet.findByIdAndUpdate(tweetId, { $addToSet: { likes: userId } }, { new: true });
+  async removeRetweetFromOriginal(tweetId, userId) {
+    return await Tweet.findByIdAndUpdate(
+      tweetId,
+      { $pull: { retweets: userId } }, 
+      { new: true }
+    );
   }
 
-  async retweet(tweetId, userId) {
-    const originalTweet = await Tweet.findById(tweetId);
-    if (!originalTweet) throw new Error("Tweet not found");
+  async undoRetweet(tweetId, userId) {
+    try {
+      const retweet = await this.findRetweet(tweetId, userId);
+      if (!retweet) throw new Error("Retweet not found");
 
-    const retweet = new Tweet({
-      text: originalTweet.text,
-      userId,
-      media: originalTweet.media,
-      visibility: "public",
-      hashtags: originalTweet.hashtags,
-      mentions: originalTweet.mentions,
-    });
+      // Delete the retweet
+      await this.deleteTweet(retweet._id);
 
-    return await retweet.save();
+      // Remove user from the original tweet's retweets array
+      await this.removeRetweetFromOriginal(tweetId, userId);
+
+      return { message: "Retweet removed successfully" };
+    } catch (error) {
+      console.error("❌ Error in undoRetweet:", error);
+      throw new Error("Failed to undo retweet");
+    }
   }
 
-  async replyToTweet(tweetId, userId, text) {
-    const reply = new Tweet({ text, userId, visibility: "public" });
-    const savedReply = await reply.save();
-    await Tweet.findByIdAndUpdate(tweetId, { $push: { replies: savedReply._id } });
-    return savedReply;
+  async deleteTweet(tweetId) {
+    return await Tweet.findByIdAndDelete(tweetId);
   }
 
-  async getTweetById(tweetId) {
-    return await Tweet.findById(tweetId).populate("userId");
-  }
-
-  async deleteTweet(tweetId, userId) {
-    const tweet = await Tweet.findById(tweetId);
+  async toggleLike(tweetId, userId) {
+    const tweet = await this.findTweetById(tweetId);
     if (!tweet) throw new Error("Tweet not found");
 
-    if (tweet.userId.toString() !== userId) throw new Error("Unauthorized");
+    const hasLiked = tweet.likes.includes(userId);
+    if (hasLiked) {
+      return await Tweet.findByIdAndUpdate(
+        tweetId,
+        { $pull: { likes: userId } }, 
+        { new: true }
+      );
+    } else {
+      return await Tweet.findByIdAndUpdate(
+        tweetId,
+        { $addToSet: { likes: userId } }, 
+        { new: true }
+      );
+    }
+  }
 
+  async findRetweet(originalTweetId, userId) {
+    return await Tweet.findOne({ originalTweet: originalTweetId, retweetedBy: userId });
+  }
+
+  async deleteTweet(tweetId) {
     return await Tweet.findByIdAndDelete(tweetId);
+  }
+
+  async removeRetweetFromOriginal(tweetId, userId) {
+    return await Tweet.findByIdAndUpdate(
+      tweetId,
+      { $pull: { retweets: userId } }, // Remove the user from retweets array
+      { new: true }
+    );
   }
 }
 

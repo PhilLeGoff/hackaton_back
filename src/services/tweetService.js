@@ -9,65 +9,107 @@ class TweetService {
   }
 
   async createTweet({ text, userId, file, visibility }) {
-    try {
-      const hashtags = this.extractHashtags(text);
-      let media = null;
+    const hashtags = this.extractHashtags(text);
+    let media = null;
 
-      if (file) {
-        media = {
-          url: file.path, // Cloudinary returns the file URL
-          type: file.mimetype.startsWith("video") ? "video" : "image",
-        };
-      }
-
-      const objectIdUserId = new mongoose.Types.ObjectId(userId);
-
-      return await TweetRepository.createTweet({ text, userId: objectIdUserId, media, visibility, hashtags });
-    } catch (error) {
-      console.error("❌ Error in TweetService:", error);
-      throw new Error("Tweet creation failed");
+    if (file) {
+      media = {
+        url: file.path, 
+        type: file.mimetype.startsWith("video") ? "video" : "image",
+      };
     }
+
+    const objectIdUserId = new mongoose.Types.ObjectId(userId);
+
+    return await TweetRepository.createTweet({
+      text,
+      userId: objectIdUserId,
+      media,
+      visibility,
+      hashtags
+    });
   }
 
   async getTweets(page, limit) {
     try {
-      return await TweetRepository.getPaginatedTweets(page, limit);
+      const data = await TweetRepository.getPaginatedTweets(page, limit);
+      return {
+        tweets: data.tweets,
+        hasMore: data.hasMore
+      };
     } catch (error) {
       console.error("❌ Error in TweetService:", error);
       throw new Error("Failed to fetch tweets");
     }
   }
 
-  async getTrendingHashtags() {
-    return await TweetRepository.getTrendingHashtags();
+  async getRetweetCount(tweetId) {
+    const tweet = await TweetRepository.findTweetById(tweetId);
+    if (!tweet) throw new Error("Tweet not found");
+
+    // ✅ If it's a retweet, return the count from the original tweet
+    if (tweet.originalTweet) {
+      const originalTweet = await TweetRepository.findTweetById(tweet.originalTweet);
+      return originalTweet ? originalTweet.retweets.length : 0;
+    }
+
+    return tweet.retweets.length;
   }
 
-  async searchByHashtag(hashtag) {
-    return await TweetRepository.searchByHashtag(hashtag.toLowerCase());
+  async toggleLike(tweetId, userId) {
+    return await TweetRepository.toggleLike(tweetId, userId);
   }
 
-  async getFeed(userId) {
-    return await TweetRepository.getFeed(userId);
+  async retweet(tweetId, userId, text) {
+    const originalTweet = await TweetRepository.findTweetById(tweetId);
+    if (!originalTweet) throw new Error("Tweet not found");
+
+    // Prevent duplicate retweets
+    const existingRetweet = await TweetRepository.findRetweet(tweetId, userId);
+    if (existingRetweet) throw new Error("Tweet already retweeted");
+
+    // Extract hashtags from the retweet text
+    const hashtags = text ? this.extractHashtags(text) : [];
+
+    // Create a new retweet
+    const retweet = await TweetRepository.createTweet({
+      text: text || "", // Retweet text (optional)
+      originalTweet: tweetId,
+      retweetedBy: userId,
+      retweetedAt: new Date(),
+      hashtags, // Store extracted hashtags
+      visibility: "public",
+      userId: userId
+    });
+
+    // Add user to the original tweet's retweets array
+    await TweetRepository.addRetweetToOriginal(tweetId, userId);
+
+    return retweet;
   }
 
-  async likeTweet(tweetId, userId) {
-    return await TweetRepository.likeTweet(tweetId, userId);
+  async unretweet(tweetId, userId) {
+    try {
+      // Find the retweet by `originalTweet` and `retweetedBy`
+      const retweet = await TweetRepository.findRetweet(tweetId, userId);
+      if (!retweet) throw new Error("Retweet not found");
+  
+      // Delete the retweet
+      await TweetRepository.deleteTweet(retweet._id);
+  
+      // Remove user from the original tweet's `retweets` array
+      await TweetRepository.removeRetweetFromOriginal(tweetId, userId);
+  
+      return { message: "Retweet removed successfully" };
+    } catch (error) {
+      console.error("❌ Error in unretweet:", error);
+      throw new Error("Failed to undo retweet");
+    }
   }
+  
 
-  async retweet(tweetId, userId) {
-    return await TweetRepository.retweet(tweetId, userId);
-  }
-
-  async replyToTweet(tweetId, userId, text) {
-    return await TweetRepository.replyToTweet(tweetId, userId, text);
-  }
-
-  async getTweetById(tweetId) {
-    return await TweetRepository.getTweetById(tweetId);
-  }
-
-  async deleteTweet(tweetId, userId) {
-    return await TweetRepository.deleteTweet(tweetId, userId);
+  async undoRetweet(tweetId, userId) {
+    return await TweetRepository.undoRetweet(tweetId, userId);
   }
 }
 

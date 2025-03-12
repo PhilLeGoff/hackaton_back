@@ -15,10 +15,10 @@ cloudinary.config({
 const avatarStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
-    console.log("📂 Avatar Upload Middleware Triggered!");
-    console.log("➡️ File received by Multer:", file);
-    
-    if (!file) throw new Error("No file provided");
+    if (!file) {
+      console.log("🚫 No avatar uploaded, using default.");
+      return null; // Return null if no file is uploaded
+    }
 
     return {
       folder: "twitter-clone/avatars",
