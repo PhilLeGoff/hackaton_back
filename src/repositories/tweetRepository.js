@@ -1,4 +1,5 @@
 import Tweet from "../models/Tweet.js";
+import User from "../models/User.js";
 
 class TweetRepository {
   async createTweet(tweetData) {
@@ -12,9 +13,9 @@ class TweetRepository {
         .populate("retweetedBy", "username")
         .populate({
           path: "originalTweet",
-          populate: { path: "userId", select: "username" } // Fetch original tweet details
+          populate: { path: "userId", select: "username" }, // Fetch original tweet details
         })
-        .sort({ retweetedAt: -1, createdAt: -1 }) 
+        .sort({ retweetedAt: -1, createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean();
@@ -35,13 +36,16 @@ class TweetRepository {
   }
 
   async findRetweet(originalTweetId, userId) {
-    return await Tweet.findOne({ originalTweet: originalTweetId, retweetedBy: userId });
+    return await Tweet.findOne({
+      originalTweet: originalTweetId,
+      retweetedBy: userId,
+    });
   }
 
   async addRetweetToOriginal(tweetId, userId) {
     return await Tweet.findByIdAndUpdate(
       tweetId,
-      { $addToSet: { retweets: userId } }, 
+      { $addToSet: { retweets: userId } },
       { new: true }
     );
   }
@@ -49,7 +53,7 @@ class TweetRepository {
   async removeRetweetFromOriginal(tweetId, userId) {
     return await Tweet.findByIdAndUpdate(
       tweetId,
-      { $pull: { retweets: userId } }, 
+      { $pull: { retweets: userId } },
       { new: true }
     );
   }
@@ -84,20 +88,23 @@ class TweetRepository {
     if (hasLiked) {
       return await Tweet.findByIdAndUpdate(
         tweetId,
-        { $pull: { likes: userId } }, 
+        { $pull: { likes: userId } },
         { new: true }
       );
     } else {
       return await Tweet.findByIdAndUpdate(
         tweetId,
-        { $addToSet: { likes: userId } }, 
+        { $addToSet: { likes: userId } },
         { new: true }
       );
     }
   }
 
   async findRetweet(originalTweetId, userId) {
-    return await Tweet.findOne({ originalTweet: originalTweetId, retweetedBy: userId });
+    return await Tweet.findOne({
+      originalTweet: originalTweetId,
+      retweetedBy: userId,
+    });
   }
 
   async deleteTweet(tweetId) {
@@ -110,6 +117,105 @@ class TweetRepository {
       { $pull: { retweets: userId } }, // Remove the user from retweets array
       { new: true }
     );
+  }
+
+  /**
+   * Find tweet by ID
+   */
+  async findTweetById(tweetId) {
+    try {
+      return await Tweet.findById(tweetId);
+    } catch (error) {
+      console.error("❌ Error finding tweet:", error);
+      throw new Error("Error finding tweet");
+    }
+  }
+
+  /**
+   * Find tweet by ID
+   */
+  async findTweetById(tweetId) {
+    try {
+      return await Tweet.findById(tweetId);
+    } catch (error) {
+      console.error("❌ Error finding tweet:", error);
+      throw new Error("Error finding tweet");
+    }
+  }
+
+  /**
+   * Save a tweet for a user
+   */
+  async saveTweetForUser(userId, tweetId) {
+    try {
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { savedTweets: tweetId },
+      });
+    } catch (error) {
+      console.error("❌ Error saving tweet:", error);
+      throw new Error("Error saving tweet");
+    }
+  }
+
+  /**
+   * Unsave a tweet for a user
+   */
+  async unsaveTweetForUser(userId, tweetId) {
+    try {
+      await User.findByIdAndUpdate(userId, { $pull: { savedTweets: tweetId } });
+    } catch (error) {
+      console.error("❌ Error unsaving tweet:", error);
+      throw new Error("Error unsaving tweet");
+    }
+  }
+
+  /**
+   * Get all saved tweets for a user
+   */
+  async getSavedTweetsByUser(userId) {
+    try {
+      const user = await User.findById(userId).populate("savedTweets");
+      return user ? user.savedTweets : [];
+    } catch (error) {
+      console.error("❌ Error fetching saved tweets:", error);
+      throw new Error("Error fetching saved tweets");
+    }
+  }
+
+  // ✅ Add Comment
+  async addComment(tweetId, userId, text) {
+    return await Tweet.findByIdAndUpdate(
+      tweetId,
+      { $push: { comments: { userId, text, sentAt: new Date() } } },
+      { new: true }
+    ).populate("comments.userId", "username avatar");
+  }
+
+  // ✅ Edit Comment
+  async editComment(tweetId, commentId, userId, text) {
+    return await Tweet.findOneAndUpdate(
+      { _id: tweetId, "comments._id": commentId, "comments.userId": userId },
+      { $set: { "comments.$.text": text } },
+      { new: true }
+    );
+  }
+
+  // ✅ Delete Comment
+  async deleteComment(tweetId, commentId, userId) {
+    return await Tweet.findByIdAndUpdate(
+      tweetId,
+      { $pull: { comments: { _id: commentId, userId } } },
+      { new: true }
+    );
+  }
+
+  // ✅ Get Comments
+  async getComments(tweetId) {
+    const tweet = await Tweet.findById(tweetId).populate(
+      "comments.userId",
+      "username avatar"
+    );
+    return tweet ? tweet.comments : [];
   }
 }
 

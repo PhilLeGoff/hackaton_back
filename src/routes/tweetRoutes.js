@@ -27,7 +27,9 @@ router.post("/:tweetId/like", verifyToken, (req, res) =>
 router.post("/:tweetId/retweet", verifyToken, (req, res) =>
   TweetController.retweet(req, res)
 );
-router.post("/:tweetId/undo-retweet", verifyToken, (req, res) => tweetController.unretweet(req, res))
+router.post("/:tweetId/undo-retweet", verifyToken, (req, res) =>
+  tweetController.unretweet(req, res)
+);
 router.post("/:tweetId/reply", verifyToken, (req, res) =>
   TweetController.replyToTweet(req, res)
 );
@@ -36,6 +38,29 @@ router.get("/:tweetId", verifyToken, (req, res) =>
 );
 router.delete("/:tweetId", verifyToken, (req, res) =>
   TweetController.deleteTweet(req, res)
+);
+router.post("/:tweetId/save", verifyToken, (req, res) =>
+  TweetController.saveTweet(req, res)
+);
+router.post("/:tweetId/unsave", verifyToken, (req, res) =>
+  TweetController.unsaveTweet(req, res)
+);
+router.get("/saved", verifyToken, (req, res) =>
+  TweetController.getSavedTweets(req, res)
+);
+
+// Comment Routes
+router.post("/:tweetId/comment", verifyToken, (req, res) =>
+  TweetController.addComment(req, res)
+);
+router.put("/:tweetId/comment/:commentId", verifyToken, (req, res) =>
+  TweetController.editComment(req, res)
+);
+router.delete("/:tweetId/comment/:commentId", verifyToken, (req, res) =>
+  TweetController.deleteComment(req, res)
+);
+router.get("/:tweetId/comments", verifyToken, (req, res) =>
+  TweetController.getComments(req, res)
 );
 
 export default router;

@@ -1,4 +1,4 @@
-import { User } from "../models/User.js";
+import User  from "../models/User.js";
 import { Types } from "mongoose";
 
 class AuthRepository {
@@ -28,6 +28,12 @@ class AuthRepository {
       console.error("❌ Error creating user:", error);
       throw new Error("Database error");
     }
+  }
+
+  async findUserByEmailOrUsername(email, username) {
+    return await User.findOne({
+      $or: [{ email }, { username }]
+    });
   }
 }
 

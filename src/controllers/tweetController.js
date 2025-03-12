@@ -7,9 +7,14 @@ class TweetController {
       const userId = req.user.id; // Get userId from token
       const file = req.file;
 
-      console.log(req.file)
+      console.log(req.file);
 
-      const newTweet = await TweetService.createTweet({ text, userId, file, visibility });
+      const newTweet = await TweetService.createTweet({
+        text,
+        userId,
+        file,
+        visibility,
+      });
       res.status(201).json(newTweet);
     } catch (error) {
       console.error("❌ Error creating tweet:", error);
@@ -20,7 +25,10 @@ class TweetController {
   async getTweets(req, res) {
     try {
       const { page = 1, limit = 10 } = req.query;
-      const tweets = await TweetService.getTweets(parseInt(page), parseInt(limit));
+      const tweets = await TweetService.getTweets(
+        parseInt(page),
+        parseInt(limit)
+      );
       res.json(tweets);
     } catch (error) {
       console.error("❌ Error fetching tweets:", error);
@@ -60,7 +68,7 @@ class TweetController {
     }
   }
 
-   // Like or Unlike a Tweet
+  // Like or Unlike a Tweet
   async likeTweet(req, res) {
     try {
       const { tweetId } = req.params;
@@ -80,7 +88,7 @@ class TweetController {
       const { tweetId } = req.params;
       const { text } = req.body;
       const userId = req.user.id;
-      console.log("userID", userId)
+      console.log("userID", userId);
       const retweetedTweet = await TweetService.retweet(tweetId, userId, text);
       res.json(retweetedTweet);
     } catch (error) {
@@ -93,7 +101,7 @@ class TweetController {
     try {
       const { tweetId } = req.params;
       const userId = req.user.id;
-      console.log("in unretweet")
+      console.log("in unretweet");
       const result = await TweetService.unretweet(tweetId, userId);
       res.json(result);
     } catch (error) {
@@ -135,6 +143,116 @@ class TweetController {
     } catch (error) {
       console.error("❌ Error deleting tweet:", error);
       res.status(500).json({ message: error.message || "Server error" });
+    }
+  }
+  /**
+   * Save a tweet
+   */
+  async saveTweet(req, res) {
+    try {
+      const { tweetId } = req.params;
+      const userId = req.user.id;
+
+      const response = await TweetService.saveTweet(userId, tweetId);
+      res.status(200).json(response);
+    } catch (error) {
+      console.error("❌ Error in TweetController.saveTweet:", error);
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * Unsave a tweet
+   */
+  async unsaveTweet(req, res) {
+    try {
+      const { tweetId } = req.params;
+      const userId = req.user.id;
+
+      const response = await TweetService.unsaveTweet(userId, tweetId);
+      res.status(200).json(response);
+    } catch (error) {
+      console.error("❌ Error in TweetController.unsaveTweet:", error);
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /**
+   * Get saved tweets
+   */
+  async getSavedTweets(req, res) {
+    try {
+      const userId = req.user.id;
+      const savedTweets = await TweetService.getSavedTweets(userId);
+      res.status(200).json({ savedTweets });
+    } catch (error) {
+      console.error("❌ Error in TweetController.getSavedTweets:", error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  // ✅ Add Comment
+  async addComment(req, res) {
+    try {
+      const { tweetId } = req.params;
+      const { text } = req.body;
+      const userId = req.user.id;
+
+      const updatedTweet = await TweetService.addComment(tweetId, userId, text);
+      res.status(201).json(updatedTweet);
+    } catch (error) {
+      console.error("❌ Error adding comment:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Edit Comment
+  async editComment(req, res) {
+    try {
+      const { tweetId, commentId } = req.params;
+      const { text } = req.body;
+      const userId = req.user.id;
+
+      const updatedTweet = await TweetService.editComment(
+        tweetId,
+        commentId,
+        userId,
+        text
+      );
+      res.status(200).json(updatedTweet);
+    } catch (error) {
+      console.error("❌ Error editing comment:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Delete Comment
+  async deleteComment(req, res) {
+    try {
+      const { tweetId, commentId } = req.params;
+      const userId = req.user.id;
+
+      const updatedTweet = await TweetService.deleteComment(
+        tweetId,
+        commentId,
+        userId
+      );
+      res.status(200).json(updatedTweet);
+    } catch (error) {
+      console.error("❌ Error deleting comment:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Get Comments
+  async getComments(req, res) {
+    try {
+      const { tweetId } = req.params;
+      const comments = await TweetService.getComments(tweetId);
+      res.status(200).json(comments);
+    } catch (error) {
+      console.error("❌ Error fetching comments:", error);
+      res.status(500).json({ message: "Internal Server Error" });
     }
   }
 }

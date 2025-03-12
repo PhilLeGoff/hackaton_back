@@ -5,7 +5,7 @@ class TweetService {
   extractHashtags(text) {
     const hashtagRegex = /#(\w+)/g;
     const matches = text.match(hashtagRegex);
-    return matches ? matches.map(tag => tag.toLowerCase()) : [];
+    return matches ? matches.map((tag) => tag.toLowerCase()) : [];
   }
 
   async createTweet({ text, userId, file, visibility }) {
@@ -14,7 +14,7 @@ class TweetService {
 
     if (file) {
       media = {
-        url: file.path, 
+        url: file.path,
         type: file.mimetype.startsWith("video") ? "video" : "image",
       };
     }
@@ -26,7 +26,7 @@ class TweetService {
       userId: objectIdUserId,
       media,
       visibility,
-      hashtags
+      hashtags,
     });
   }
 
@@ -35,7 +35,7 @@ class TweetService {
       const data = await TweetRepository.getPaginatedTweets(page, limit);
       return {
         tweets: data.tweets,
-        hasMore: data.hasMore
+        hasMore: data.hasMore,
       };
     } catch (error) {
       console.error("❌ Error in TweetService:", error);
@@ -49,7 +49,9 @@ class TweetService {
 
     // ✅ If it's a retweet, return the count from the original tweet
     if (tweet.originalTweet) {
-      const originalTweet = await TweetRepository.findTweetById(tweet.originalTweet);
+      const originalTweet = await TweetRepository.findTweetById(
+        tweet.originalTweet
+      );
       return originalTweet ? originalTweet.retweets.length : 0;
     }
 
@@ -79,7 +81,7 @@ class TweetService {
       retweetedAt: new Date(),
       hashtags, // Store extracted hashtags
       visibility: "public",
-      userId: userId
+      userId: userId,
     });
 
     // Add user to the original tweet's retweets array
@@ -93,23 +95,85 @@ class TweetService {
       // Find the retweet by `originalTweet` and `retweetedBy`
       const retweet = await TweetRepository.findRetweet(tweetId, userId);
       if (!retweet) throw new Error("Retweet not found");
-  
+
       // Delete the retweet
       await TweetRepository.deleteTweet(retweet._id);
-  
+
       // Remove user from the original tweet's `retweets` array
       await TweetRepository.removeRetweetFromOriginal(tweetId, userId);
-  
+
       return { message: "Retweet removed successfully" };
     } catch (error) {
       console.error("❌ Error in unretweet:", error);
       throw new Error("Failed to undo retweet");
     }
   }
-  
 
   async undoRetweet(tweetId, userId) {
     return await TweetRepository.undoRetweet(tweetId, userId);
+  }
+
+  /**
+   * Save a tweet
+   */
+  async saveTweet(userId, tweetId) {
+    try {
+      const tweet = await TweetRepository.findTweetById(tweetId);
+      if (!tweet) {
+        throw new Error("Tweet not found");
+      }
+
+      await TweetRepository.saveTweetForUser(userId, tweetId);
+      return { message: "Tweet saved successfully" };
+    } catch (error) {
+      console.error("❌ Error in TweetService.saveTweet:", error);
+      throw new Error(error.message || "Error saving tweet");
+    }
+  }
+
+  /**
+   * Unsave a tweet
+   */
+  async unsaveTweet(userId, tweetId) {
+    try {
+      await TweetRepository.unsaveTweetForUser(userId, tweetId);
+      return { message: "Tweet unsaved successfully" };
+    } catch (error) {
+      console.error("❌ Error in TweetService.unsaveTweet:", error);
+      throw new Error(error.message || "Error unsaving tweet");
+    }
+  }
+
+  /**
+   * Get saved tweets for a user
+   */
+  async getSavedTweets(userId) {
+    try {
+      return await TweetRepository.getSavedTweetsByUser(userId);
+    } catch (error) {
+      console.error("❌ Error in TweetService.getSavedTweets:", error);
+      throw new Error(error.message || "Error fetching saved tweets");
+    }
+  }
+
+  // ✅ Add Comment
+  async addComment(tweetId, userId, text) {
+    return await TweetRepository.addComment(tweetId, userId, text);
+  }
+
+  // ✅ Edit Comment
+  async editComment(tweetId, commentId, userId, text) {
+    return await TweetRepository.editComment(tweetId, commentId, userId, text);
+  }
+
+  // ✅ Delete Comment
+  async deleteComment(tweetId, commentId, userId) {
+    return await TweetRepository.deleteComment(tweetId, commentId, userId);
+  }
+
+  // ✅ Get Comments
+  async getComments(tweetId) {
+    return await TweetRepository.getComments(tweetId);
   }
 }
 
