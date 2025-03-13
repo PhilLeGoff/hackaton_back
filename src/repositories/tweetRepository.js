@@ -33,10 +33,6 @@ class TweetRepository {
     }
   }
 
-  async findTweetById(tweetId) {
-    return await Tweet.findById(tweetId).populate("userId", "username");
-  }
-
   async findRetweet(originalTweetId, userId) {
     return await Tweet.findOne({
       originalTweet: originalTweetId,
@@ -115,18 +111,6 @@ class TweetRepository {
       { $pull: { retweets: userId } }, // Remove the user from retweets array
       { new: true }
     );
-  }
-
-  /**
-   * Find tweet by ID
-   */
-  async findTweetById(tweetId) {
-    try {
-      return await Tweet.findById(tweetId);
-    } catch (error) {
-      console.error("❌ Error finding tweet:", error);
-      throw new Error("Error finding tweet");
-    }
   }
 
   /**
@@ -223,6 +207,77 @@ class TweetRepository {
       "username avatar"
     );
     return tweet ? tweet.comments : [];
+  }
+
+  async findTweetsByHashtag(hashtag) {
+    try {
+      console.log("🔍 Searching for hashtag:", hashtag);
+
+      return await Tweet.find({
+        hashtags: { $regex: hashtag, $options: "i" },
+      }).populate("userId", "username avatar");
+    } catch (error) {
+      console.error("❌ Error in findTweetsByHashtag:", error);
+      throw new Error("Database error while searching by hashtag");
+    }
+  }
+
+  // ✅ Find tweets mentioning a user (Partial username search)
+  async findTweetsByMention(username) {
+    try {
+      console.log("🔍 Searching for mentions of:", username);
+
+      // Find users whose username **contains** the query
+      const users = await User.find({
+        username: { $regex: username, $options: "i" },
+      }).select("_id");
+
+      if (!users.length) return [];
+
+      // Extract user IDs
+      const userIds = users.map((user) => user._id);
+
+      return await Tweet.find({ mentions: { $in: userIds } }).populate(
+        "userId",
+        "username avatar"
+      );
+    } catch (error) {
+      console.error("❌ Error in findTweetsByMention:", error);
+      throw new Error("Database error while searching by mention");
+    }
+  }
+
+  // ✅ Find tweets containing a text query
+  async findTweetsByText(query) {
+    try {
+      console.log("🔍 Searching tweets with query:", query);
+
+      return await Tweet.find({ text: { $regex: new RegExp(query, "i") } })
+        .populate("userId", "username avatar") // ✅ Populating user info
+        .populate("originalTweet") // ✅ Populating original tweet if it's a retweet
+        .populate("retweetedBy", "username avatar") // ✅ Populating retweeter info
+        .populate("likes") // ✅ Populating likes (if needed)
+        .populate("retweets"); // ✅ Populating retweets (if needed)
+    } catch (error) {
+      console.error("❌ Error in findTweetsByText:", error);
+      throw new Error("Database error while searching by text");
+    }
+  }
+
+  async findTweetsByUser(id) {
+    try {
+      console.log("🔍 Finding tweets for user:", id);
+
+      return await Tweet.find({ userId: id })
+        .populate("userId", "username avatar") // ✅ Populating user info
+        .populate("originalTweet") // ✅ Populating original tweet if it's a retweet
+        .populate("retweetedBy", "username avatar") // ✅ Populating retweeter info
+        .populate("likes") // ✅ Populating likes (if needed)
+        .populate("retweets"); // ✅ Populating retweets (if needed);
+    } catch (error) {
+      console.error("❌ Error in findTweetsByUser:", error);
+      throw new Error("Database error while searching tweets by user");
+    }
   }
 }
 

@@ -8,7 +8,6 @@ class TweetController {
         const userId = req.user.id; // Get userId from token
         const file = req.file;
 
-        console.log(req.file);
 
         // ✅ Extract mentions & hashtags
         const hashtags = TweetService.extractHashtags(text);
@@ -108,10 +107,8 @@ class TweetController {
 
       if (isLiked && req.io) {
         const tweetOwnerId = updatedTweet.userId.toString(); // ✅ Get the tweet's author
-        console.log("toid", tweetOwnerId)
 
         console.log("🔍 Checking online users:", req.io.onlineUsers); // 🔍 Log the entire Map
-        console.log("check diff:", tweetOwnerId !== userId)
         if (tweetOwnerId !== userId ) {
           const recipientSocketId = req.io.onlineUsers.get(tweetOwnerId);
           console.log(`🛠 Searching for tweet owner ID: ${tweetOwnerId}`);
@@ -150,7 +147,6 @@ class TweetController {
       const retweetedTweet = await TweetService.retweet(tweetId, userId, text);
 
       const tweetOwnerId = retweetedTweet.originalTweet ? retweetedTweet.originalTweet.userId.toString() : retweetedTweet.userId.toString();
-      console.log("tweetownerid", tweetOwnerId)
       if (tweetOwnerId !== userId) {
         const recipientSocketId = req.io.onlineUsers.get(tweetOwnerId);
         if (recipientSocketId) {
@@ -174,7 +170,6 @@ class TweetController {
     try {
       const { tweetId } = req.params;
       const userId = req.user.id;
-      console.log("in unretweet");
       const result = await TweetService.unretweet(tweetId, userId);
       res.json(result);
     } catch (error) {
@@ -343,6 +338,60 @@ class TweetController {
       res.status(200).json(comments);
     } catch (error) {
       console.error("❌ Error fetching comments:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Search by Hashtag
+  async searchByHashtag(req, res) {
+    try {
+      const { hashtag } = req.params;
+      const tweets = await TweetService.getTweetsByHashtag(hashtag);
+      res.status(200).json(tweets);
+    } catch (error) {
+      console.error("❌ Error searching by hashtag:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Search by Mention
+  async searchByMention(req, res) {
+    try {
+      const { username } = req.params;
+      const tweets = await TweetService.getTweetsByMention(username);
+      res.status(200).json(tweets);
+    } catch (error) {
+      console.error("❌ Error searching by mention:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Search by Text Query
+  async searchByText(req, res) {
+    try {
+      const { query } = req.query
+
+      if (!query) {
+        return res.status(400).json({ message: "Missing search query" });
+      }
+  
+      const tweets = await TweetService.getTweetsByText(query);
+      res.status(200).json(tweets);
+    } catch (error) {
+      console.error("❌ Error searching tweets:", error);
+      res.status(500).json({ message: "Error searching tweets" });
+    }
+  }
+
+  async findTweetsByUser(req, res) {
+    try {
+      const { id } = req.user;
+
+      const tweets = await TweetService.findTweetsByUser(id);
+
+      res.status(200).json(tweets);
+    } catch (error) {
+      console.error("❌ Error finding tweets by user:", error);
       res.status(500).json({ message: "Internal Server Error" });
     }
   }

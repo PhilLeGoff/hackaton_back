@@ -33,9 +33,6 @@ router.post("/:tweetId/undo-retweet", verifyToken, (req, res) =>
 router.post("/:tweetId/reply", verifyToken, (req, res) =>
   TweetController.replyToTweet(req, res)
 );
-router.get("/:tweetId", verifyToken, (req, res) =>
-  TweetController.getTweetById(req, res)
-);
 router.delete("/:tweetId", verifyToken, (req, res) =>
   TweetController.deleteTweet(req, res)
 );
@@ -61,6 +58,24 @@ router.delete("/:tweetId/comment/:commentId", verifyToken, (req, res) =>
 );
 router.get("/:tweetId/comments", verifyToken, (req, res) =>
   TweetController.getComments(req, res)
+);
+
+
+// ✅ Search Tweets by Hashtag
+router.get("/hashtag/:hashtag", verifyToken, (req, res) => TweetController.searchByHashtag(req, res));
+
+// ✅ Search Tweets by Mention (Username)
+router.get("/mention/:username", verifyToken, (req, res) => TweetController.searchByMention(req, res));
+
+// ✅ Search Tweets by Text Query
+router.get("/search", verifyToken, (req, res) => TweetController.searchByText(req, res));
+
+router.get("/:tweetId", verifyToken, (req, res) =>
+  TweetController.getTweetById(req, res)
+);
+
+router.get("/search/user/", verifyToken, (req, res) =>
+  TweetController.findTweetsByUser(req, res)
 );
 
 export default router;

@@ -34,4 +34,10 @@ router.post("/:userId/save-tweet/:tweetId", verifyToken, UserController.saveTwee
 // 🔹 Unsave a Tweet
 router.post("/:userId/unsave-tweet/:tweetId", verifyToken, UserController.unsaveTweet);
 
+// ✅ Get users the logged-in user is following
+router.get("/following/:userId", verifyToken, UserController.getFollowing);
+
+// ✅ Get users who follow the logged-in user
+router.get("/followers/:userId", verifyToken, UserController.getFollowers);
+
 export default router;

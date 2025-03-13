@@ -41,23 +41,22 @@ class UserController {
   async updateUser(req, res) {
     try {
       const userId = req.user.id; // Extract userId from token
-  
+
       // Extract text fields from request body
       const { username, email, bio } = req.body;
-  
+
       // ✅ Check if a file was uploaded
       const avatar = req.file ? req.file.path : null;
-      console.log("avatar", avatar)
-  
+
       // ✅ Create an object for update (Only include fields that are provided)
       const updateFields = { username, email, bio };
       if (avatar) {
         updateFields.avatar = avatar;
       }
-  
+
       // ✅ Update user
       const updatedUser = await UserService.updateUser(userId, updateFields);
-  
+
       res.status(200).json(updatedUser);
     } catch (error) {
       console.error("❌ Error updating user:", error);
@@ -80,7 +79,20 @@ class UserController {
     try {
       const userId = req.user.id; // Extract userId from token
       const targetUserId = req.params.userId;
-      await UserService.followUser(userId, targetUserId);
+      const user = await UserService.followUser(userId, targetUserId);
+      if (user) {
+        const recipientSocketId = req.io.onlineUsers.get(targetUserId.toString());
+        if (recipientSocketId) {
+          req.io.to(recipientSocketId).emit("notification", {
+            userId: user._id.toString(),
+            type: "follow",
+            userId,
+          });
+          console.log(
+            `🔔 Notification sent to ${user._id.toString()} for retweet on tweet: ${userId}`
+          );
+        }
+      }
       res.status(200).json({ message: "User followed successfully" });
     } catch (error) {
       console.error("❌ Error following user:", error);
@@ -132,6 +144,33 @@ class UserController {
     } catch (error) {
       console.error("❌ Error fetching saved tweets:", error);
       res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  // ✅ Get users the logged-in user is following
+  async getFollowing(req, res) {
+    try {
+      const { userId } = req.params;
+      const following = await UserService.getFollowing(userId);
+      res.status(200).json(following);
+    } catch (error) {
+      console.error(
+        "❌ Erreur lors de la récupération des abonnements :",
+        error
+      );
+      res.status(500).json({ message: "Erreur serveur" });
+    }
+  }
+
+  // ✅ Get users who follow the logged-in user
+  async getFollowers(req, res) {
+    try {
+      const { userId } = req.params;
+      const followers = await UserService.getFollowers(userId);
+      res.status(200).json(followers);
+    } catch (error) {
+      console.error("❌ Erreur lors de la récupération des abonnés :", error);
+      res.status(500).json({ message: "Erreur serveur" });
     }
   }
 }

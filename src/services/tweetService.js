@@ -57,6 +57,16 @@ class TweetService {
     }
   }
 
+  async deleteTweet(id) {
+    try {
+      await TweetRepository.deleteTweet(id);
+      return 
+    } catch (error) {
+      console.error("❌ Error in TweetService:", error);
+      throw new Error("Failed to fetch tweets");
+    }
+  }
+
   async getTweetById(tweetId) {
     try {
       return await TweetRepository.findTweetById(tweetId);
@@ -239,6 +249,45 @@ class TweetService {
   // ✅ Get Comments
   async getComments(tweetId) {
     return await TweetRepository.getComments(tweetId);
+  }
+
+  // ✅ Get tweets by hashtag
+  async getTweetsByHashtag(hashtag) {
+    try {
+      return await TweetRepository.findTweetsByHashtag(hashtag);
+    } catch (error) {
+      console.error("❌ Error in getTweetsByHashtag:", error);
+      throw new Error("Failed to search by hashtag");
+    }
+  }
+
+  // ✅ Get tweets mentioning a specific username
+  async getTweetsByMention(username) {
+    try {
+      return await TweetRepository.findTweetsByMention(username);
+    } catch (error) {
+      console.error("❌ Error in getTweetsByMention:", error);
+      throw new Error("Failed to search by mention");
+    }
+  }
+
+  // ✅ Get tweets by text search
+  async getTweetsByText(query) {
+    try {
+      return await TweetRepository.findTweetsByText(query);
+    } catch (error) {
+      console.error("❌ Error in getTweetsByText:", error);
+      throw new Error("Failed to search tweets by text");
+    }
+  }
+
+  async findTweetsByUser(id) {
+    try {
+      return await TweetRepository.findTweetsByUser(id);
+    } catch (error) {
+      console.error("❌ Error in TweetService:", error);
+      throw new Error("Error finding tweets by user");
+    }
   }
 }
 

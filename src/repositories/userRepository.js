@@ -18,8 +18,9 @@ class UserRepository {
   }
 
   async followUser(userId, targetUserId) {
-    await User.findByIdAndUpdate(userId, { $addToSet: { following: targetUserId } });
+    const user = await User.findByIdAndUpdate(userId, { $addToSet: { following: targetUserId } });
     await User.findByIdAndUpdate(targetUserId, { $addToSet: { followers: userId } });
+    return user
   }
 
   async unfollowUser(userId, targetUserId) {
@@ -37,6 +38,30 @@ class UserRepository {
 
   async getSavedTweets(userId) {
     return await User.findById(userId).populate("savedTweets");
+  }
+
+  // ✅ Get users the logged-in user is following
+  async findFollowing(userId) {
+    try {
+      return await User.findById(userId)
+        .populate("following", "username avatar bio")
+        .select("following");
+    } catch (error) {
+      console.error("❌ Erreur dans findFollowing :", error);
+      throw new Error("Erreur base de données");
+    }
+  }
+
+  // ✅ Get users who follow the logged-in user
+  async findFollowers(userId) {
+    try {
+      return await User.findById(userId)
+        .populate("followers", "username avatar bio")
+        .select("followers");
+    } catch (error) {
+      console.error("❌ Erreur dans findFollowers :", error);
+      throw new Error("Erreur base de données");
+    }
   }
 }
 
