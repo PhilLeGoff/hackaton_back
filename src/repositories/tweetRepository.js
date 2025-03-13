@@ -83,29 +83,26 @@ class TweetRepository {
   async toggleLike(tweetId, userId) {
     const tweet = await this.findTweetById(tweetId);
     if (!tweet) throw new Error("Tweet not found");
-
+  
     const hasLiked = tweet.likes.includes(userId);
+  
     if (hasLiked) {
-      return await Tweet.findByIdAndUpdate(
+      const updatedTweet = await Tweet.findByIdAndUpdate(
         tweetId,
         { $pull: { likes: userId } },
         { new: true }
       );
+      return { updatedTweet, isLiked: false }; // ✅ Return `isLiked: false`
     } else {
-      return await Tweet.findByIdAndUpdate(
+      const updatedTweet = await Tweet.findByIdAndUpdate(
         tweetId,
         { $addToSet: { likes: userId } },
         { new: true }
       );
+      return { updatedTweet, isLiked: true }; // ✅ Return `isLiked: true`
     }
   }
-
-  async findRetweet(originalTweetId, userId) {
-    return await Tweet.findOne({
-      originalTweet: originalTweetId,
-      retweetedBy: userId,
-    });
-  }
+  
 
   async deleteTweet(tweetId) {
     return await Tweet.findByIdAndDelete(tweetId);

@@ -68,20 +68,34 @@ class TweetController {
     }
   }
 
-  // Like or Unlike a Tweet
   async likeTweet(req, res) {
     try {
       const { tweetId } = req.params;
-      const userId = req.user.id; // Extract from token
-
-      const updatedTweet = await TweetService.toggleLike(tweetId, userId);
+      const userId = req.user.id;
+  
+      const { updatedTweet, isLiked } = await TweetService.toggleLike(tweetId, userId);
+  
+      // ✅ Emit notification only when the tweet is liked
+      if (isLiked && req.io) {
+        req.io.emit("notification", { 
+          userId: updatedTweet.userId.toString(), 
+          type: "like", 
+          tweetId 
+        });
+        console.log("🔔 Notification sent for like on tweet:", tweetId);
+      } else {
+        console.log("⚠️ Tweet unliked, no notification sent.");
+      }
+  
       res.json(updatedTweet);
     } catch (error) {
       console.error("❌ Error in likeTweet:", error);
       res.status(500).json({ message: "Server error" });
     }
   }
-
+  
+  
+  
   // Retweet a Tweet
   async retweet(req, res) {
     try {
@@ -90,6 +104,13 @@ class TweetController {
       const userId = req.user.id;
       console.log("userID", userId);
       const retweetedTweet = await TweetService.retweet(tweetId, userId, text);
+
+      req.io.emit("notification", { 
+        userId: retweetedTweet.userId, 
+        type: "retweet", 
+        tweetId 
+      });
+
       res.json(retweetedTweet);
     } catch (error) {
       console.error("❌ Error in retweet:", error);
@@ -154,6 +175,13 @@ class TweetController {
       const userId = req.user.id;
 
       const response = await TweetService.saveTweet(userId, tweetId);
+
+      req.io.emit("notification", { 
+        userId: userId, 
+        type: "save", 
+        tweetId 
+      });
+
       res.status(200).json(response);
     } catch (error) {
       console.error("❌ Error in TweetController.saveTweet:", error);
@@ -199,6 +227,11 @@ class TweetController {
       const userId = req.user.id;
 
       const updatedTweet = await TweetService.addComment(tweetId, userId, text);
+      req.io.emit("notification", { 
+        userId: updatedTweet.userId.toString(), 
+        type: "comment", 
+        tweetId 
+      });
       res.status(201).json(updatedTweet);
     } catch (error) {
       console.error("❌ Error adding comment:", error);
