@@ -9,13 +9,13 @@ class AuthController {
   
       const { username, email, password, bio } = req.body;
       if (!username || !email || !password) {
-        return res.status(400).json({ message: "⚠️ All fields are required!" });
+        return res.status(400).json({ message: "⚠️ Tous les champs sont obligatoires !" });
       }
   
       // Check if email or username already exists
       const existingUser = await AuthRepository.findUserByEmailOrUsername(email, username);
       if (existingUser) {
-        return res.status(400).json({ message: "❌ Email or Username is already taken!" });
+        return res.status(400).json({ message: "❌ L'e-mail ou le nom d'utilisateur est déjà utilisé !" });
       }
   
       const avatar = req.file ? req.file.path : "https://default-avatar.com/avatar.png"; // ✅ Fallback to default
