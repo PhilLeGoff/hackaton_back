@@ -1,3 +1,4 @@
+import User from "../models/User.js";
 import TweetRepository from "../repositories/tweetRepository.js";
 import mongoose from "mongoose";
 
@@ -8,8 +9,15 @@ class TweetService {
     return matches ? matches.map((tag) => tag.toLowerCase()) : [];
   }
 
+  extractMentions(text) {
+    const mentionRegex = /@(\w+)/g;
+    const matches = text.match(mentionRegex);
+    return matches ? matches.map((mention) => mention.substring(1)) : [];
+  }
+
   async createTweet({ text, userId, file, visibility }) {
     const hashtags = this.extractHashtags(text);
+    const mentionedUsernames = this.extractMentions(text);
     let media = null;
 
     if (file) {
@@ -21,12 +29,18 @@ class TweetService {
 
     const objectIdUserId = new mongoose.Types.ObjectId(userId);
 
+    const mentionedUsers = await User.find({
+      username: { $in: mentionedUsernames },
+    }).select("_id");
+    const mentionedUserIds = mentionedUsers.map((user) => user._id);
+
     return await TweetRepository.createTweet({
       text,
       userId: objectIdUserId,
       media,
       visibility,
       hashtags,
+      mentions: mentionedUserIds,
     });
   }
 
@@ -37,6 +51,15 @@ class TweetService {
         tweets: data.tweets,
         hasMore: data.hasMore,
       };
+    } catch (error) {
+      console.error("❌ Error in TweetService:", error);
+      throw new Error("Failed to fetch tweets");
+    }
+  }
+
+  async getTweetById(tweetId) {
+    try {
+      return await TweetRepository.findTweetById(tweetId);
     } catch (error) {
       console.error("❌ Error in TweetService:", error);
       throw new Error("Failed to fetch tweets");
@@ -157,9 +180,51 @@ class TweetService {
   }
 
   // ✅ Add Comment
-  async addComment(tweetId, userId, text) {
-    return await TweetRepository.addComment(tweetId, userId, text);
-  }
+  async addComment(tweetId, userId, text, io) {
+    // ✅ Extract mentioned usernames from the comment
+    const mentionedUsernames = this.extractMentions(text);
+
+    // ✅ Fetch mentioned users from the database
+    const mentionedUsers = await User.find({ username: { $in: mentionedUsernames } }).select("_id");
+    const mentionedUserIds = mentionedUsers.map(user => user._id);
+
+    // ✅ Store the comment in the database
+    const updatedTweet = await TweetRepository.addComment(tweetId, userId, text, mentionedUserIds);
+
+    const tweetOwnerId = updatedTweet.userId.toString();
+
+    // ✅ Notify tweet owner (if they are not the commenter)
+    if (tweetOwnerId !== userId) {
+        const recipientSocketId = io.onlineUsers.get(tweetOwnerId);
+        if (recipientSocketId) {
+            io.to(recipientSocketId).emit("notification", {
+                userId: tweetOwnerId,
+                type: "comment",
+                tweetId,
+            });
+            console.log(`🔔 Notification sent to ${tweetOwnerId} for comment on tweet: ${tweetId}`);
+        }
+    }
+
+    // ✅ Notify mentioned users
+    if (mentionedUserIds.length > 0 && io) {
+        mentionedUserIds.forEach((mentionedUserId) => {
+            const recipientSocketId = io.onlineUsers.get(mentionedUserId.toString());
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit("notification", {
+                    userId: mentionedUserId.toString(),
+                    type: "mentionComment",
+                    tweetId,
+                });
+                console.log(`🔔 Notification sent to ${mentionedUserId} for mention in comment: ${tweetId}`);
+            } else {
+                console.log(`⚠️ Mentioned user ${mentionedUserId} is offline or not found in onlineUsers.`);
+            }
+        });
+    }
+
+    return updatedTweet;
+}
 
   // ✅ Edit Comment
   async editComment(tweetId, commentId, userId, text) {

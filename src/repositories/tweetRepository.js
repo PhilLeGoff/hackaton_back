@@ -3,19 +3,21 @@ import User from "../models/User.js";
 
 class TweetRepository {
   async createTweet(tweetData) {
-    return await new Tweet(tweetData).save();
+    return (await new Tweet(tweetData).save()).populate("originalTweet");
   }
 
   async getPaginatedTweets(page, limit) {
     try {
       const tweets = await Tweet.find()
-        .populate("userId", "username")
-        .populate("retweetedBy", "username")
+        .populate("userId", "username avatar")
+        .populate("retweetedBy", "username avatar")
         .populate({
           path: "originalTweet",
-          populate: { path: "userId", select: "username" }, // Fetch original tweet details
+          populate: { path: "userId", select: "username avatar" }, // Fetch original tweet details
         })
-        .sort({ retweetedAt: -1, createdAt: -1 })
+        .sort({
+          updatedAt: -1, // ✅ Sort by the most recent update (works for both tweets & retweets)
+        })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean();
@@ -83,9 +85,9 @@ class TweetRepository {
   async toggleLike(tweetId, userId) {
     const tweet = await this.findTweetById(tweetId);
     if (!tweet) throw new Error("Tweet not found");
-  
+
     const hasLiked = tweet.likes.includes(userId);
-  
+
     if (hasLiked) {
       const updatedTweet = await Tweet.findByIdAndUpdate(
         tweetId,
@@ -102,7 +104,6 @@ class TweetRepository {
       return { updatedTweet, isLiked: true }; // ✅ Return `isLiked: true`
     }
   }
-  
 
   async deleteTweet(tweetId) {
     return await Tweet.findByIdAndDelete(tweetId);
@@ -180,10 +181,19 @@ class TweetRepository {
   }
 
   // ✅ Add Comment
-  async addComment(tweetId, userId, text) {
+  async addComment(tweetId, userId, text, mentionedUserIds) {
     return await Tweet.findByIdAndUpdate(
       tweetId,
-      { $push: { comments: { userId, text, sentAt: new Date() } } },
+      {
+        $push: {
+          comments: {
+            userId,
+            text,
+            sentAt: new Date(),
+            mentions: mentionedUserIds, // ✅ Store mentioned users
+          },
+        },
+      },
       { new: true }
     ).populate("comments.userId", "username avatar");
   }

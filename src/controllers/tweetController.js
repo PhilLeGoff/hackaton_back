@@ -1,26 +1,57 @@
+import User from "../models/User.js";
 import TweetService from "../services/tweetService.js";
 
 class TweetController {
   async createTweet(req, res) {
     try {
-      const { text, visibility } = req.body;
-      const userId = req.user.id; // Get userId from token
-      const file = req.file;
+        const { text, visibility } = req.body;
+        const userId = req.user.id; // Get userId from token
+        const file = req.file;
 
-      console.log(req.file);
+        console.log(req.file);
 
-      const newTweet = await TweetService.createTweet({
-        text,
-        userId,
-        file,
-        visibility,
-      });
-      res.status(201).json(newTweet);
+        // ✅ Extract mentions & hashtags
+        const hashtags = TweetService.extractHashtags(text);
+        const mentionedUsernames = TweetService.extractMentions(text);
+
+        // ✅ Fetch mentioned users from the database
+        const mentionedUsers = await User.find({ username: { $in: mentionedUsernames } }).select("_id");
+        const mentionedUserIds = mentionedUsers.map(user => user._id);
+
+        // ✅ Create the new tweet
+        const newTweet = await TweetService.createTweet({
+            text,
+            userId,
+            file,
+            visibility,
+            hashtags,
+            mentions: mentionedUserIds, // ✅ Store mentioned user IDs
+        });
+
+        // ✅ Notify mentioned users if they are online
+        if (mentionedUserIds.length > 0 && req.io) {
+            mentionedUserIds.forEach((mentionedUserId) => {
+                const recipientSocketId = req.io.onlineUsers.get(mentionedUserId.toString());
+                if (recipientSocketId) {
+                    req.io.to(recipientSocketId).emit("notification", {
+                        userId: mentionedUserId.toString(),
+                        type: "mentionTweet",
+                        tweetId: newTweet._id.toString(),
+                    });
+                    console.log(`🔔 Notification sent to ${mentionedUserId} for mention in tweet: ${newTweet._id}`);
+                } else {
+                    console.log(`⚠️ Mentioned user ${mentionedUserId} is offline or not found in onlineUsers.`);
+                }
+            });
+        }
+
+        res.status(201).json(newTweet);
     } catch (error) {
-      console.error("❌ Error creating tweet:", error);
-      res.status(500).json({ message: error.message || "Server error" });
+        console.error("❌ Error creating tweet:", error);
+        res.status(500).json({ message: error.message || "Server error" });
     }
-  }
+}
+
 
   async getTweets(req, res) {
     try {
@@ -72,28 +103,41 @@ class TweetController {
     try {
       const { tweetId } = req.params;
       const userId = req.user.id;
-  
+
       const { updatedTweet, isLiked } = await TweetService.toggleLike(tweetId, userId);
-  
-      // ✅ Emit notification only when the tweet is liked
+
       if (isLiked && req.io) {
-        req.io.emit("notification", { 
-          userId: updatedTweet.userId.toString(), 
-          type: "like", 
-          tweetId 
-        });
-        console.log("🔔 Notification sent for like on tweet:", tweetId);
+        const tweetOwnerId = updatedTweet.userId.toString(); // ✅ Get the tweet's author
+        console.log("toid", tweetOwnerId)
+
+        console.log("🔍 Checking online users:", req.io.onlineUsers); // 🔍 Log the entire Map
+        console.log("check diff:", tweetOwnerId !== userId)
+        if (tweetOwnerId !== userId ) {
+          const recipientSocketId = req.io.onlineUsers.get(tweetOwnerId);
+          console.log(`🛠 Searching for tweet owner ID: ${tweetOwnerId}`);
+          console.log(`🔍 Found socket ID for owner: ${recipientSocketId}`);
+
+          if (recipientSocketId) {
+            req.io.to(recipientSocketId).emit("notification", {
+              userId: tweetOwnerId,
+              type: "like",
+              tweetId,
+            });
+            console.log(`🔔 Notification sent to ${tweetOwnerId} for like on tweet: ${tweetId}`);
+          } else {
+            console.log(`⚠️ User ${tweetOwnerId} is offline or not found in onlineUsers.`);
+          }
+        }
       } else {
         console.log("⚠️ Tweet unliked, no notification sent.");
       }
-  
+
       res.json(updatedTweet);
     } catch (error) {
       console.error("❌ Error in likeTweet:", error);
       res.status(500).json({ message: "Server error" });
     }
-  }
-  
+}
   
   
   // Retweet a Tweet
@@ -102,14 +146,22 @@ class TweetController {
       const { tweetId } = req.params;
       const { text } = req.body;
       const userId = req.user.id;
-      console.log("userID", userId);
+
       const retweetedTweet = await TweetService.retweet(tweetId, userId, text);
 
-      req.io.emit("notification", { 
-        userId: retweetedTweet.userId, 
-        type: "retweet", 
-        tweetId 
-      });
+      const tweetOwnerId = retweetedTweet.originalTweet ? retweetedTweet.originalTweet.userId.toString() : retweetedTweet.userId.toString();
+      console.log("tweetownerid", tweetOwnerId)
+      if (tweetOwnerId !== userId) {
+        const recipientSocketId = req.io.onlineUsers.get(tweetOwnerId);
+        if (recipientSocketId) {
+          req.io.to(recipientSocketId).emit("notification", {
+            userId: tweetOwnerId,
+            type: "retweet",
+            tweetId,
+          });
+          console.log(`🔔 Notification sent to ${tweetOwnerId} for retweet on tweet: ${tweetId}`);
+        }
+      }
 
       res.json(retweetedTweet);
     } catch (error) {
@@ -176,15 +228,24 @@ class TweetController {
 
       const response = await TweetService.saveTweet(userId, tweetId);
 
-      req.io.emit("notification", { 
-        userId: userId, 
-        type: "save", 
-        tweetId 
-      });
+      const tweet = await TweetService.getTweetById(tweetId);
+      const tweetOwnerId = tweet.userId.toString();
+
+      if (tweetOwnerId !== userId) {
+        const recipientSocketId = req.io.onlineUsers.get(tweetOwnerId);
+        if (recipientSocketId) {
+          req.io.to(recipientSocketId).emit("notification", {
+            userId: tweetOwnerId,
+            type: "save",
+            tweetId,
+          });
+          console.log(`🔔 Notification sent to ${tweetOwnerId} for save on tweet: ${tweetId}`);
+        }
+      }
 
       res.status(200).json(response);
     } catch (error) {
-      console.error("❌ Error in TweetController.saveTweet:", error);
+      console.error("❌ Error in saveTweet:", error);
       res.status(400).json({ message: error.message });
     }
   }
@@ -222,22 +283,19 @@ class TweetController {
   // ✅ Add Comment
   async addComment(req, res) {
     try {
-      const { tweetId } = req.params;
-      const { text } = req.body;
-      const userId = req.user.id;
+        const { tweetId } = req.params;
+        const { text } = req.body;
+        const userId = req.user.id;
 
-      const updatedTweet = await TweetService.addComment(tweetId, userId, text);
-      req.io.emit("notification", { 
-        userId: updatedTweet.userId.toString(), 
-        type: "comment", 
-        tweetId 
-      });
-      res.status(201).json(updatedTweet);
+        // ✅ Call Service to handle comment creation & mention processing
+        const updatedTweet = await TweetService.addComment(tweetId, userId, text, req.io);
+
+        res.status(201).json(updatedTweet);
     } catch (error) {
-      console.error("❌ Error adding comment:", error);
-      res.status(500).json({ message: "Internal Server Error" });
+        console.error("❌ Error adding comment:", error);
+        res.status(500).json({ message: "Internal Server Error" });
     }
-  }
+}
 
   // ✅ Edit Comment
   async editComment(req, res) {

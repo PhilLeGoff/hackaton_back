@@ -1,6 +1,7 @@
 import express from "express";
 import UserController from "../controllers/userController.js";
 import verifyToken from "../middleware/verifyToken.js";
+import { uploadAvatar } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -8,13 +9,15 @@ const router = express.Router();
 router.get("/", verifyToken, UserController.getAllUsers);
 
 // 🔹 Get User Profile
-router.get("/:userId", verifyToken, UserController.getUserById);
+router.get("/profile", verifyToken, UserController.getUserById);
+
+router.get("/:userId", verifyToken, UserController.getProfileById);
 
 // 🔹 Update User Profile
-router.put("/:userId", verifyToken, UserController.updateUser);
+router.put("/:userId", verifyToken, uploadAvatar.single("avatar"), UserController.updateUser);
 
 // 🔹 Delete User (Admin Only)
-router.delete("/:userId", verifyToken, UserController.deleteUser);
+router.delete("/", verifyToken, UserController.deleteUser);
 
 // 🔹 Follow a User
 router.post("/:userId/follow", verifyToken, UserController.followUser);

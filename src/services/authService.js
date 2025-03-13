@@ -11,7 +11,7 @@ class AuthService {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
   
-      let avatarUrl = avatarFile || "https://default-avatar.com/avatar.png"; // ✅ Default avatar
+      let avatarUrl = avatarFile || "https://res.cloudinary.com/dizuhubgy/image/upload/v1741862564/twitter-clone/avatars/avatar-1741862564254.png"; // ✅ Default avatar
   
       const newUser = await AuthRepository.createUser({
         username,

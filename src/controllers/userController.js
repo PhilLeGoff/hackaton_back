@@ -24,11 +24,40 @@ class UserController {
       res.status(500).json({ message: "Internal Server Error" });
     }
   }
+  async getProfileById(req, res) {
+    try {
+      const userId = req.params.userId; // Extract userId from token
+      const user = await UserService.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.status(200).json(user);
+    } catch (error) {
+      console.error("❌ Error getting user:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
 
   async updateUser(req, res) {
     try {
       const userId = req.user.id; // Extract userId from token
-      const updatedUser = await UserService.updateUser(userId, req.body);
+  
+      // Extract text fields from request body
+      const { username, email, bio } = req.body;
+  
+      // ✅ Check if a file was uploaded
+      const avatar = req.file ? req.file.path : null;
+      console.log("avatar", avatar)
+  
+      // ✅ Create an object for update (Only include fields that are provided)
+      const updateFields = { username, email, bio };
+      if (avatar) {
+        updateFields.avatar = avatar;
+      }
+  
+      // ✅ Update user
+      const updatedUser = await UserService.updateUser(userId, updateFields);
+  
       res.status(200).json(updatedUser);
     } catch (error) {
       console.error("❌ Error updating user:", error);

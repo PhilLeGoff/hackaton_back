@@ -25,6 +25,11 @@ const io = new Server(server, {
 });
 
 /**
+ * ✅ Initialize a Map to track online users
+ */
+io.onlineUsers = new Map(); // ✅ Fix: Define onlineUsers before using it
+
+/**
  * Attach io instance to requests
  */
 app.set("io", io);
@@ -41,31 +46,38 @@ server.on("listening", onListening);
 /**
  * --- SOCKET.IO IMPLEMENTATION ---
  */
-let onlineUsers = new Map();
-
 io.on("connection", (socket) => {
   console.log("🟢 A user connected:", socket.id);
 
   socket.on("user_connected", (userId) => {
-    onlineUsers.set(userId, socket.id);
-    console.log(`✅ User ${userId} is online`);
-  });
-
-  socket.on("notify", ({ userId, type, tweetId }) => {
-    const recipientSocketId = onlineUsers.get(userId);
-    if (recipientSocketId) {
-      io.to(recipientSocketId).emit("notification", { type, tweetId });
+    if (userId) {
+      io.onlineUsers.set(userId.toString(), socket.id); // ✅ Store the user ID and socket ID
+      console.log(`✅ User ${userId} is now online with socket ${socket.id}`);
+    } else {
+      console.warn("⚠️ Warning: Received empty userId on connection!");
     }
   });
 
   socket.on("disconnect", () => {
-    for (let [key, value] of onlineUsers.entries()) {
-      if (value === socket.id) {
-        onlineUsers.delete(key);
-        console.log(`❌ User ${key} disconnected`);
+    for (let [userId, socketId] of io.onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        io.onlineUsers.delete(userId);
+        console.log(`❌ User ${userId} disconnected`);
       }
     }
   });
+
+  socket.on("notify", async ({ userId, type, tweetId }) => {
+    const recipientSocketId = io.onlineUsers.get(userId); // ✅ Only notify the tweet owner
+  
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit("notification", { type, tweetId });
+      console.log(`🔔 Sent notification to user ${userId} for ${type} on tweet ${tweetId}`);
+    } else {
+      console.log(`⚠️ User ${userId} is offline, notification not sent`);
+    }
+  });
+
 });
 
 /**
